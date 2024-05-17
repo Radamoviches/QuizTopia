@@ -1,7 +1,33 @@
 import tkinter as tk
 from tkinter import messagebox
 
-def add_set(conn, user_id, name):
+
+def get_sets(conn, user_id):
+    """
++    Retrieves all flashcard sets belonging to a user
++
++    Args:
++        conn (object): a database connection object
++        user_id (int): the id of the user whose sets are to be retrieved
++
++    Returns:
++        dict: a dictionary of sets (name: id)
++    """
+    cursor = conn.cursor()
+
+    # Execite SQL query to fetch all flashcard sets
+    cursor.execute('''
+        SELECT id, name FROM flashcard_sets WHERE user_id = %s
+        ''', (user_id,))
+
+    rows = cursor.fetchall()
+    sets = {row[1]: row[0] for row in rows}  # Create a dictionary of sets (name: id)
+    sets = {row[1]: row[0] for row in rows} # Create a dictionary of sets (name: id)
+
+    return sets
+
+
+def create_set(conn, user_id, name):
     cursor = conn.cursor()
 
     # Insert the set name into flashcard_sets table
@@ -14,7 +40,7 @@ def add_set(conn, user_id, name):
 
 # Function to add a flashcard to the database
 
-def add_card(conn, user_id, set_id, word, definition):
+def create_card(conn, user_id, set_id, word, definition):
     """
 +    +    Adds a new flashcard to the database
 +    +    
@@ -44,31 +70,6 @@ def add_card(conn, user_id, set_id, word, definition):
 
 
 # Function to retrieve all flashcard sets from the database
-
-def get_sets(conn, user_id):
-    """
-+    Retrieves all flashcard sets belonging to a user
-+
-+    Args:
-+        conn (object): a database connection object
-+        user_id (int): the id of the user whose sets are to be retrieved
-+
-+    Returns:
-+        dict: a dictionary of sets (name: id)
-+    """
-    cursor = conn.cursor()
-
-    # Execite SQL query to fetch all flashcard sets
-    cursor.execute('''
-        SELECT id, name FROM flashcard_sets WHERE user_id = %s
-        ''', (user_id,))
-
-    rows = cursor.fetchall()
-    sets = {row[1]: row[0] for row in rows}  # Create a dictionary of sets (name: id)
-    sets = {row[1]: row[0] for row in rows} # Create a dictionary of sets (name: id)
-
-    return sets
-
 
 # Function to retrieve all flashcards of a specific set
 def get_cards(conn, user_id, set_id):
@@ -129,10 +130,10 @@ def delete_set(conn, user_id, set_id, sets_combobox, word_label, definition_labe
     clear_flashcard_display(word_label, definition_label)
     populate_sets_combobox(conn, user_id, sets_combobox)
 
-    # Clear the current_cards list and reset card_index
-    global current_cards, card_index
-    current_cards = []
-    card_index = 0
+    # Clear the CURRENT_CARDS list and reset CARD_INDEX
+    global CURRENT_CARDS, CARD_INDEX
+    CURRENT_CARDS = []
+    CARD_INDEX = 0
 
 
 # Function to create a new flashcard set
@@ -154,7 +155,7 @@ def create_set(conn, user_id, set_name_var, word_var, definition_var, sets_combo
     set_name = set_name_var.get()
     if set_name:
         if set_name not in get_sets(conn, user_id):
-            set_id = add_set(conn, user_id, set_name)
+            set_id = create_set(conn, user_id, set_name)
             populate_sets_combobox(conn, user_id, sets_combobox)
             set_name_var.set('')
 
@@ -188,12 +189,12 @@ def add_word(conn, user_id, set_name_var, sets_combobox, word_var, definition_va
         # If the set doesn't exist, create it
         print(get_sets(conn, user_id))
         if set_name not in get_sets(conn, user_id):
-            set_id = add_set(conn, user_id, set_name)
+            set_id = create_set(conn, user_id, set_name)
         else:
             set_id = get_sets(conn, user_id)[set_name]
 
         # Add the new flashcard to the database
-        add_card(conn, user_id, set_id, word, definition)
+        create_card(conn, user_id, set_id, word, definition)
 
         # Clear the input fields
         word_var.set('')
@@ -247,7 +248,7 @@ def delete_selected_set(conn, user_id, sets_combobox, word_label, definition_lab
             # Refresh the sets combobox
             populate_sets_combobox(conn, user_id, sets_combobox)
 
-            # Clear the current cards list and reset card_index
+            # Clear the current cards list and reset CARD_INDEX
             clear_flashcard_display(word_label, definition_label)
 
 
@@ -277,9 +278,9 @@ def select_set(conn, user_id, sets_combobox, word_label, definition_label):
             definition_label.config(text='')
     else:
         # Clear the current cards list and reset card index
-        global current_cards, card_index
-        current_cards = []
-        card_index = 0
+        global CURRENT_CARDS, CARD_INDEX
+        CURRENT_CARDS = []
+        CARD_INDEX = 0
         clear_flashcard_display(word_label, definition_label)
 
 
@@ -293,11 +294,11 @@ def display_flashcards(cards, word_label, definition_label):
 +        definition_label (tkinter Label): a tkinter Label to display the definition of the current card
 +
 +    """
-    global card_index
-    global current_cards
+    global CARD_INDEX
+    global CURRENT_CARDS
 
-    card_index = 0
-    current_cards = cards
+    CARD_INDEX = 0
+    CURRENT_CARDS = cards
     
     # Clear the display
     if not cards:
@@ -332,12 +333,12 @@ def show_card(word_label, definition_label):
 ++        definition_label (tkinter Label): a tkinter Label to display the definition of the current card
 ++
 ++    """
-    global card_index
-    global current_cards
+    global CARD_INDEX
+    global CURRENT_CARDS
 
-    if current_cards:
-        if 0 <= card_index < len(current_cards):
-            word, _ = current_cards[card_index]
+    if CURRENT_CARDS:
+        if 0 <= CARD_INDEX < len(CURRENT_CARDS):
+            word, _ = CURRENT_CARDS[CARD_INDEX]
             word_label.config(text=word)
             definition_label.config(text='')
         else:
@@ -355,11 +356,11 @@ def flip_card(definition_label):
 ++        definition_label (tkinter Label): a tkinter Label to display the definition of the current card
 ++
 ++    """
-    global card_index
-    global current_cards
+    global CARD_INDEX
+    global CURRENT_CARDS
 
-    if current_cards:
-        _, definition = current_cards[card_index]
+    if CURRENT_CARDS:
+        _, definition = CURRENT_CARDS[CARD_INDEX]
         definition_label.config(text=definition)
 
 
@@ -373,11 +374,11 @@ def next_card(word_label, definition_label):
 ++        definition_label (tkinter Label): a tkinter Label to display the definition of the current card
 ++
 ++    """
-    global card_index
-    global current_cards
+    global CARD_INDEX
+    global CURRENT_CARDS
 
-    if current_cards:
-        card_index = min(card_index + 1, len(current_cards) -1)
+    if CURRENT_CARDS:
+        CARD_INDEX = min(CARD_INDEX + 1, len(CURRENT_CARDS) -1)
         show_card(word_label, definition_label)
 
 
@@ -391,10 +392,10 @@ def prev_card(word_label, definition_label):
 ++        definition_label (tkinter Label): a tkinter Label to display the definition of the current card
 ++
 ++    """
-    global card_index
-    global current_cards
+    global CARD_INDEX
+    global CURRENT_CARDS
 
-    if current_cards:
-        card_index = max(card_index - 1, 0)
+    if CURRENT_CARDS:
+        CARD_INDEX = max(CARD_INDEX - 1, 0)
         show_card(word_label, definition_label)
 
